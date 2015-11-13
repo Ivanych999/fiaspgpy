@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "fiaspy", "fiaspy\fiaspy.pyproj", "{990AEE02-4961-454A-BAB0-FDCD7EE81DCD}"
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "fiaspy", "fiaspgpy\fiaspy.pyproj", "{990AEE02-4961-454A-BAB0-FDCD7EE81DCD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

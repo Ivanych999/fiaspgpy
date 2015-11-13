@@ -1,4 +1,4 @@
-# -*- encoding: utf-8 -*-
+﻿# -*- encoding: utf-8 -*-
 __author__ = 'medvedev.ivan@mail.ru'
 
 from dbfread import DBF
@@ -13,6 +13,40 @@ import psycopg2, os
 #	}
 
 FIAS_TABLE_NAMES = ['addrobj','house','houseint','landmark','nordoc','socrbase','curentst','actstat','operstat','centerst','intvstat','hststat','eststat','strstat','daddrobj','dhouse','dhouseint','dlandmark','dnordoc']
+
+class config:
+	config_file = ''
+	config_data = {}
+
+class pgworker:
+	host = 'localhost'
+	port = '5432'
+	dbname = 'fias'
+	user = ''
+	password = ''
+	schema = {}
+
+	def __init__(self,dbname,user,password,host='localhost',port='5432'):
+		self.host = host
+		self.port = port
+		self.dbname = dbname
+		self.user = user
+		self.password = password
+
+	def __connect(self):
+		return psycopg2.connect(database=self.dbname,user=self.user,password=self.password,host=self.host,port=self.port)
+
+	def get_schema(self):
+		pass
+
+	def load_schema(self):
+		pass
+
+	def update_schema(self):
+		pass
+
+	def upsert_data(self,tablename,data):
+		pass
 
 class dbfreader:
 	files_path=''
