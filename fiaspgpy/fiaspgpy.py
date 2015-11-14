@@ -3,7 +3,8 @@ __author__ = 'medvedev.ivan@mail.ru'
 
 from dbfread import DBF
 from collections import namedtuple
-import psycopg2, os
+import psycopg2
+import os, json
 
 #DATA_TYPES = {
 #	'\+': {'name': 'autoincrement', 'pgtype': 'serial'},
@@ -17,6 +18,15 @@ FIAS_TABLE_NAMES = ['addrobj','house','houseint','landmark','nordoc','socrbase',
 class config:
 	config_file = ''
 	config_data = {}
+
+	def __init__(self,config_file):
+		self.config_file = config_file
+
+	def load_from_file(self):
+		conf = open(self.config_file,'r')
+		self.config_data = json.load(conf)
+		conf.close()
+
 
 class pgworker:
 	host = 'localhost'
