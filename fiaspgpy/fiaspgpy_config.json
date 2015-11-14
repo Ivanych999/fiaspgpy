@@ -1,0 +1,10 @@
+{
+"fias_table_names":["addrobj", "house", "houseint", "landmark", "nordoc", "socrbase", "curentst", "actstat", "operstat", "centerst", "intvstat", "hststat", "eststat", "strstat", "daddrobj", "dhouse", "dhouseint", "dlandmark", "dnordoc"],
+"pg_parameters": {
+	"host": "localhost",
+	"port": "5432",
+	"dbname": "fias",
+	"user": "dataeditor",
+	"password": "dataeditor"
+	}
+}

@@ -13,7 +13,16 @@ import os, json
 #	'B': {'name': 'double', 'pgtype': 'float'},
 #	}
 
-FIAS_TABLE_NAMES = ['addrobj','house','houseint','landmark','nordoc','socrbase','curentst','actstat','operstat','centerst','intvstat','hststat','eststat','strstat','daddrobj','dhouse','dhouseint','dlandmark','dnordoc']
+default_config = {
+				  "fias_table_names":["addrobj", "house", "houseint", "landmark", "nordoc", "socrbase", "curentst", "actstat", "operstat", "centerst", "intvstat", "hststat", "eststat", "strstat", "daddrobj", "dhouse", "dhouseint", "dlandmark", "dnordoc"],
+				  "pg_parameters": {
+						"host": "localhost",
+						"port": "5432",
+						"dbname": "fias",
+						"user": "dataeditor",
+						"password": "dataeditor"
+						}
+				  }
 
 class config:
 	config_file = ''
@@ -61,7 +70,6 @@ class pgworker:
 class dbfreader:
 	files_path=''
 	encoding='cp866'
-	schema = {}
 
 	def __init__(self,path,encoding='cp866'):
 		self.files_path = path
