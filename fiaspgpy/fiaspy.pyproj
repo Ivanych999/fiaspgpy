@@ -27,5 +27,8 @@
   <ItemGroup>
     <Compile Include="fiaspgpy.py" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="fiaspgpy_config.json" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
 </Project>

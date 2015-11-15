@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "fiaspy", "fiaspgpy\fiaspy.pyproj", "{990AEE02-4961-454A-BAB0-FDCD7EE81DCD}"
 EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "apylog", "..\apylog\apylog.pyproj", "{C20076DC-FF8A-4A93-8FF5-620E7DFC89A2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -11,6 +13,8 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{990AEE02-4961-454A-BAB0-FDCD7EE81DCD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{990AEE02-4961-454A-BAB0-FDCD7EE81DCD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C20076DC-FF8A-4A93-8FF5-620E7DFC89A2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C20076DC-FF8A-4A93-8FF5-620E7DFC89A2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

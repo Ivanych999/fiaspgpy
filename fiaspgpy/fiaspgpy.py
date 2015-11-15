@@ -3,15 +3,9 @@ __author__ = 'medvedev.ivan@mail.ru'
 
 from dbfread import DBF
 from collections import namedtuple
+# import apylog
 import psycopg2
 import os, json
-
-#DATA_TYPES = {
-#	'\+': {'name': 'autoincrement', 'pgtype': 'serial'},
-#	'@': {'name': 'time', 'pgtype': 'timestamp'},
-#	'0': {'name': 'flags', 'pgtype': 'text'},
-#	'B': {'name': 'double', 'pgtype': 'float'},
-#	}
 
 default_config = {
 				  "fias_table_names":["addrobj", "house", "houseint", "landmark", "nordoc", "socrbase", "curentst", "actstat", "operstat", "centerst", "intvstat", "hststat", "eststat", "strstat", "daddrobj", "dhouse", "dhouseint", "dlandmark", "dnordoc"],
@@ -21,7 +15,14 @@ default_config = {
 						"dbname": "fias",
 						"user": "dataeditor",
 						"password": "dataeditor"
-						}
+						},
+				  "data_types": {
+					 "integer": {"type": "N"},
+					 "character varying": {"type": "C", "length": {"exclude":[36]}},
+					 "uuid": {"type": "C", "length": {"include":[36]}},
+					 "text": {"type": "M"},
+					 "date": {"type": "D"}
+					 }
 				  }
 
 class config:
@@ -77,6 +78,7 @@ class dbfreader:
 
 	def __read_schema(filename,encoding='cp866'):
 		d_file = DBF(filename, encoding = encoding, ignore_missing_memofile=True)
+		fields = d_file.field
 		return
 
 	def touch(self):
