@@ -1,17 +1,20 @@
 {
-"fias_table_names":["addrobj", "house", "houseint", "landmark", "nordoc", "socrbase", "curentst", "actstat", "operstat", "centerst", "intvstat", "hststat", "eststat", "strstat", "daddrobj", "dhouse", "dhouseint", "dlandmark", "dnordoc"],
+"fias_table_names":["addrobj", "house", "houseint", "landmark", "nordoc", "socrbase", "curentst", "actstat", "operstat", "centerst", "intvstat", "hststat", "eststat", "strstat", "daddrobj", "dhouse", "dhousint", "dlandmark", "dnordoc"],
+"dbf_path": "D:\\Data\\fias_dbf",
 "pg_parameters": {
-	"host": "localhost",
+	"host": "172.24.2.150",
 	"port": "5432",
 	"dbname": "fias",
-	"user": "dataeditor",
-	"password": "dataeditor"
+	"user": "bpd_reader",
+	"password": "bpd_reader@123"
 	},
 "data_types": {
 	"integer": {"type": "N"},
-	"character varying": {"type": "C", "length": {"exclude":[36]}},
-	"uuid": {"type": "C", "length": {"include":[36]}},
+	"character varying": {"type": "C", "length": {"exclude":[36]}, "length_required": true},
+	"uuid": {"type": "C", "length": {"values":[36]}},
 	"text": {"type": "M"},
 	"date": {"type": "D"}
-	}
+	},
+"upsert_sql" : "WITH upsert AS (UPDATE {0} SET ({1}) = ({2}) WHERE {3}='{4}' RETURNING *) INSERT INTO {0} ({1}) SELECT {2} WHERE NOT EXISTS (SELECT * FROM upsert);",
+"get_pkey_sql": "select attname from pg_attribute where attrelid in (select conindid from pg_constraint where conrelid in (select oid from pg_class where relname = '{0}'));"
 }

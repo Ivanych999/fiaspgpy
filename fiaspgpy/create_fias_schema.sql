@@ -274,7 +274,7 @@ COMMENT ON COLUMN dhouse.statstatus IS 'Состояние дома';
 COMMENT ON COLUMN dhouse.normdoc IS 'Внешний ключ на нормативный документ';
 COMMENT ON COLUMN dhouse.counter IS 'Счетчик записей домов для КЛАДР 4';
 
-CREATE TABLE dhouseint
+CREATE TABLE dhousint
 (
   postalcode character varying(6), -- Почтовый индекс
   ifnsfl character varying(4), -- Код ИФНС ФЛ
@@ -294,32 +294,32 @@ CREATE TABLE dhouseint
   intstatus integer, -- Статус интервала (обычный, четный, нечетный)
   normdoc uuid, -- Внешний ключ на нормативный документ
   counter integer, -- Счетчик записей домов для КЛАДР 4
-  CONSTRAINT dhouseint_pkey PRIMARY KEY (houseintid)
+  CONSTRAINT dhousint_pkey PRIMARY KEY (houseintid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE dhouseint OWNER TO bpd_owner;
+ALTER TABLE dhousint OWNER TO bpd_owner;
 
-COMMENT ON TABLE dhouseint IS 'Интервалы домов (удалённые объекты)';
+COMMENT ON TABLE dhousint IS 'Интервалы домов (удалённые объекты)';
 
-COMMENT ON COLUMN dhouseint.postalcode IS 'Почтовый индекс';
-COMMENT ON COLUMN dhouseint.ifnsfl IS 'Код ИФНС ФЛ';
-COMMENT ON COLUMN dhouseint.terrifsnfl IS 'Код территориального участка ИФНС ФЛ';
-COMMENT ON COLUMN dhouseint.ifnsul IS 'Код ИФНС ЮЛ';
-COMMENT ON COLUMN dhouseint.terrifnsul IS 'Код территориального участка ИФНС ЮЛ';
-COMMENT ON COLUMN dhouseint.okato IS 'ОКАТО';
-COMMENT ON COLUMN dhouseint.oktmo IS 'ОКТМО';
-COMMENT ON COLUMN dhouseint.updatedate IS 'Дата  внесения (обновления) записи';
-COMMENT ON COLUMN dhouseint.intstart IS 'Значение начала интервала';
-COMMENT ON COLUMN dhouseint.intend IS 'Значение окончания интервала';
-COMMENT ON COLUMN dhouseint.houseintid IS 'Идентификатор записи интервала домов';
-COMMENT ON COLUMN dhouseint.intguid IS 'Глобальный уникальный идентификатор интервала домов';
-COMMENT ON COLUMN dhouseint.aoguid IS 'Идентификатор объекта родительского объекта (улицы, города, населенного пункта и т.п.)';
-COMMENT ON COLUMN dhouseint.startdate IS 'Начало действия записи';
-COMMENT ON COLUMN dhouseint.enddate IS 'Окончание действия записи';
-COMMENT ON COLUMN dhouseint.intstatus IS 'Статус интервала (обычный, четный, нечетный)';
-COMMENT ON COLUMN dhouseint.normdoc IS 'Внешний ключ на нормативный документ';
-COMMENT ON COLUMN dhouseint.counter IS 'Счетчик записей домов для КЛАДР 4';
+COMMENT ON COLUMN dhousint.postalcode IS 'Почтовый индекс';
+COMMENT ON COLUMN dhousint.ifnsfl IS 'Код ИФНС ФЛ';
+COMMENT ON COLUMN dhousint.terrifsnfl IS 'Код территориального участка ИФНС ФЛ';
+COMMENT ON COLUMN dhousint.ifnsul IS 'Код ИФНС ЮЛ';
+COMMENT ON COLUMN dhousint.terrifnsul IS 'Код территориального участка ИФНС ЮЛ';
+COMMENT ON COLUMN dhousint.okato IS 'ОКАТО';
+COMMENT ON COLUMN dhousint.oktmo IS 'ОКТМО';
+COMMENT ON COLUMN dhousint.updatedate IS 'Дата  внесения (обновления) записи';
+COMMENT ON COLUMN dhousint.intstart IS 'Значение начала интервала';
+COMMENT ON COLUMN dhousint.intend IS 'Значение окончания интервала';
+COMMENT ON COLUMN dhousint.houseintid IS 'Идентификатор записи интервала домов';
+COMMENT ON COLUMN dhousint.intguid IS 'Глобальный уникальный идентификатор интервала домов';
+COMMENT ON COLUMN dhousint.aoguid IS 'Идентификатор объекта родительского объекта (улицы, города, населенного пункта и т.п.)';
+COMMENT ON COLUMN dhousint.startdate IS 'Начало действия записи';
+COMMENT ON COLUMN dhousint.enddate IS 'Окончание действия записи';
+COMMENT ON COLUMN dhousint.intstatus IS 'Статус интервала (обычный, четный, нечетный)';
+COMMENT ON COLUMN dhousint.normdoc IS 'Внешний ключ на нормативный документ';
+COMMENT ON COLUMN dhousint.counter IS 'Счетчик записей домов для КЛАДР 4';
 
 CREATE TABLE dlandmark
 (

@@ -3,10 +3,14 @@ __author__ = 'medvedev.ivan@mail.ru'
 
 import os, datetime
 
+SEVERITY_INFO = 0
+SEVERITY_WARNING = 1
+SEVERITY_ERROR = 2
+
 SEVERITY_LEVEL = {
-			  0: 'info',
-			  1: 'warning',
-			  2: 'error'
+			  SEVERITY_INFO: 'info',
+			  SEVERITY_WARNING: 'warning',
+			  SEVERITY_ERROR: 'error'
 			  }
 
 class apylog:
