@@ -106,6 +106,7 @@ class pgworker:
 			with self._connect() as conn:
 				cur = conn.cursor()
 				cur.execute(config["upsert_sql"].format(tablename,','.join([f.lower() for f in record.keys()]),','.join(self._getValues(record.values())),pkey_name,self._prepareValue(record[pkey_name.upper()])))
+				conn.commit()
 				result = {"status": "success", "data": ""}
 		except Exception,err:
 			result = {"status": "error", "data": err}
@@ -189,9 +190,9 @@ class fiasloader:
 			self.dbf_worker = dbfreader(self.config_worker.config_data["dbf_path"],self.config_worker.config_data.get("encoding",'cp866'))
 			self.logger.addMessage(apylog.SEVERITY_INFO,'DBF worker loaded')
 
-			self.logger.addMessage(apylog.SEVERITY_INFO,'Start read DBF files')
+			self.logger.addMessage(apylog.SEVERITY_INFO,'Start read DBF files info')
 			self.dbf_worker.read_files(self.config_worker.config_data)
-			self.logger.addMessage(apylog.SEVERITY_INFO,'DBF files read')
+			self.logger.addMessage(apylog.SEVERITY_INFO,'DBF files info read')
 
 			self.logger.addMessage(apylog.SEVERITY_INFO,'Start loading PG worker')
 			self.pg_worker = pgworker(self.config_worker.config_data["pg_parameters"]["dbname"],self.config_worker.config_data["pg_parameters"]["user"],self.config_worker.config_data["pg_parameters"]["password"],self.config_worker.config_data["pg_parameters"]["host"],self.config_worker.config_data["pg_parameters"]["port"])
