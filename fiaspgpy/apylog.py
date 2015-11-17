@@ -21,4 +21,4 @@ class apylog:
 
 	def addMessage(self,severity,message,ignore_logger_severity=False):
 		if self.severity<=severity or ignore_logger_severity:
-			print "{0} at {1}: {2}".format(SEVERITY_LEVEL[severity].capitalize(),datetime.datetime.now().strftime('%d.%m.%Y %H:%M:%S'),message)
+			print u"{0} at {1}: {2}".format(SEVERITY_LEVEL[severity].capitalize(),datetime.datetime.now().strftime('%d.%m.%Y %H:%M:%S'),message)
