@@ -7,12 +7,43 @@ SET standard_conforming_strings = on;
 SET check_function_bodies = false;
 SET client_min_messages = warning;
 
-CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
-COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
+--CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
+--COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 
 SET search_path = public, pg_catalog;
 SET default_with_oids = false;
 
+CREATE OR REPLACE FUNCTION public.fias_insert_before()
+  RETURNS trigger AS
+$BODY$
+DECLARE
+    p_key_name text;
+    attributes text[];
+    count_id integer;
+BEGIN
+
+    EXECUTE 'select 
+        attname from pg_attribute 
+        where attrelid in (select conindid from pg_constraint where contype = ''p'' and conrelid = ' || TG_RELID || ');' INTO p_key_name;
+        
+    EXECUTE 'select array(select attname from pg_attribute where attrelid = ' || TG_RELID || ' and attnum > 0);' into attributes;
+    
+    EXECUTE 'select count(*) from ' || TG_TABLE_NAME || ' where ' || p_key_name || ' = $1.' || p_key_name || ';' into count_id using NEW;
+    
+    IF count_id > 0 THEN
+        EXECUTE 'UPDATE ' || TG_TABLE_NAME || ' SET (' || array_to_string(attributes,',') || ') = ' || NEW.* || ' WHERE ' || p_key_name || ' = $1.' || p_key_name || ';' USING NEW;
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF; 
+END;
+$BODY$
+  LANGUAGE plpgsql VOLATILE
+  COST 100;
+ALTER FUNCTION public.fias_insert_before()
+  OWNER TO {0};
+
+DROP TABLE IF EXISTS actstat;
 CREATE TABLE actstat
 (
   actstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -29,9 +60,16 @@ COMMENT ON COLUMN actstat.name IS 'Наименование
 0 – Не актуальный
 1 – Актуальный (последняя запись по адресному объекту)';
 
+CREATE TRIGGER actstat_before_insert
+  BEFORE INSERT
+  ON actstat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS addrobj;
 CREATE TABLE addrobj
 (
-  aoguid uuid NOT NULL, -- Глобальный уникальный идентификатор адресного объекта
+  aoguid character varying(36) NOT NULL, -- Глобальный уникальный идентификатор адресного объекта
   formalname character varying(120), -- Формализованное наименование
   regioncode character varying(2), -- Код региона
   autocode character varying(1), -- Код автономии
@@ -53,10 +91,10 @@ CREATE TABLE addrobj
   updatedate date, -- Дата  внесения (обновления) записи
   shortname character varying(10), -- Краткое наименование типа объекта
   aolevel integer, -- Уровень адресного объекта
-  parentguid uuid, -- Идентификатор объекта родительского объекта
-  aoid uuid, -- Уникальный идентификатор записи. Ключевое поле.
-  previd uuid, -- Идентификатор записи связывания с предыдушей исторической записью
-  nextid uuid, -- Идентификатор записи  связывания с последующей исторической записью
+  parentguid character varying(36), -- Идентификатор объекта родительского объекта
+  aoid character varying(36), -- Уникальный идентификатор записи. Ключевое поле.
+  previd character varying(36), -- Идентификатор записи связывания с предыдушей исторической записью
+  nextid character varying(36), -- Идентификатор записи  связывания с последующей исторической записью
   code character varying(17), -- Код адресного объекта одной строкой с признаком актуальности из КЛАДР 4.0.
   plaincode character varying(15), -- Код адресного объекта из КЛАДР 4.0 одной строкой без признака актуальности (последних двух цифр)
   actstatus integer, -- Статус актуальности адресного объекта ФИАС. Актуальный адрес на текущую дату. Обычно последняя запись об адресном объекте.
@@ -65,7 +103,7 @@ CREATE TABLE addrobj
   currstatus integer, -- Статус актуальности КЛАДР 4 (последние две цифры в коде)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
-  normdoc uuid, -- Внешний ключ на нормативный документ
+  normdoc character varying(36), -- Внешний ключ на нормативный документ
   CONSTRAINT addrobj_pkey PRIMARY KEY (aoguid)
 )
 WITH (OIDS=FALSE);
@@ -109,6 +147,13 @@ COMMENT ON COLUMN addrobj.startdate IS 'Начало действия запис
 COMMENT ON COLUMN addrobj.enddate IS 'Окончание действия записи';
 COMMENT ON COLUMN addrobj.normdoc IS 'Внешний ключ на нормативный документ';
 
+CREATE TRIGGER addrobj_before_insert
+  BEFORE INSERT
+  ON addrobj
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS centerst;
 CREATE TABLE centerst
 (
   centerstid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -123,6 +168,13 @@ COMMENT ON TABLE centerst IS 'Статус центра';
 COMMENT ON COLUMN centerst.centerstid IS 'Идентификатор статуса (ключ)';
 COMMENT ON COLUMN centerst.name IS 'Наименование';
 
+CREATE TRIGGER centerst_before_insert
+  BEFORE INSERT
+  ON centerst
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS curentst;
 CREATE TABLE curentst
 (
   curentstid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -131,7 +183,7 @@ CREATE TABLE curentst
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE curentst OWNER TO bpd_owner;
+ALTER TABLE curentst OWNER TO {0};
 
 COMMENT ON TABLE curentst IS 'Статус актуальности КЛАДР 4.0';
 COMMENT ON COLUMN curentst.curentstid IS 'Идентификатор статуса (ключ)';
@@ -142,9 +194,16 @@ COMMENT ON COLUMN curentst.name IS 'Наименование
 51 - переподчиненный, 
 99 - несуществующий)';
 
+CREATE TRIGGER curentst_before_insert
+  BEFORE INSERT
+  ON curentst
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS daddrobj;
 CREATE TABLE daddrobj
 (
-  aoguid uuid NOT NULL, -- Глобальный уникальный идентификатор адресного объекта
+  aoguid character varying(36) NOT NULL, -- Глобальный уникальный идентификатор адресного объекта
   formalname character varying(120), -- Формализованное наименование
   regioncode character varying(2), -- Код региона
   autocode character varying(1), -- Код автономии
@@ -166,10 +225,10 @@ CREATE TABLE daddrobj
   updatedate date, -- Дата  внесения (обновления) записи
   shortname character varying(10), -- Краткое наименование типа объекта
   aolevel integer, -- Уровень адресного объекта
-  parentguid uuid, -- Идентификатор объекта родительского объекта
-  aoid uuid, -- Уникальный идентификатор записи. Ключевое поле.
-  previd uuid, -- Идентификатор записи связывания с предыдушей исторической записью
-  nextid uuid, -- Идентификатор записи  связывания с последующей исторической записью
+  parentguid character varying(36), -- Идентификатор объекта родительского объекта
+  aoid character varying(36), -- Уникальный идентификатор записи. Ключевое поле.
+  previd character varying(36), -- Идентификатор записи связывания с предыдушей исторической записью
+  nextid character varying(36), -- Идентификатор записи  связывания с последующей исторической записью
   code character varying(17), -- Код адресного объекта одной строкой с признаком актуальности из КЛАДР 4.0.
   plaincode character varying(15), -- Код адресного объекта из КЛАДР 4.0 одной строкой без признака актуальности (последних двух цифр)
   actstatus integer, -- Статус актуальности адресного объекта ФИАС. Актуальный адрес на текущую дату. Обычно последняя запись об адресном объекте.
@@ -178,12 +237,12 @@ CREATE TABLE daddrobj
   currstatus integer, -- Статус актуальности КЛАДР 4 (последние две цифры в коде)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
-  normdoc uuid, -- Внешний ключ на нормативный документ
+  normdoc character varying(36), -- Внешний ключ на нормативный документ
   CONSTRAINT daddrobj_pkey PRIMARY KEY (aoguid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE daddrobj OWNER TO bpd_owner;
+ALTER TABLE daddrobj OWNER TO {0};
 
 COMMENT ON TABLE daddrobj IS 'Классификатор адресообразующих элементов (удалённые объекты)';
 COMMENT ON COLUMN daddrobj.aoguid IS 'Глобальный уникальный идентификатор адресного объекта';
@@ -222,6 +281,13 @@ COMMENT ON COLUMN daddrobj.startdate IS 'Начало действия запи�
 COMMENT ON COLUMN daddrobj.enddate IS 'Окончание действия записи';
 COMMENT ON COLUMN daddrobj.normdoc IS 'Внешний ключ на нормативный документ';
 
+CREATE TRIGGER daddrobj_before_insert
+  BEFORE INSERT
+  ON daddrobj
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS dhouse;
 CREATE TABLE dhouse
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -237,19 +303,19 @@ CREATE TABLE dhouse
   buildnum character varying(10), -- Номер корпуса
   strucnum character varying(10), -- Номер строения
   strstatus integer, -- Признак строения
-  houseid uuid NOT NULL, -- Уникальный идентификатор записи дома
-  houseguid uuid, -- Глобальный уникальный идентификатор дома
-  aoguid uuid, -- Guid записи родительского объекта (улицы, города, населенного пункта и т.п.)
+  houseid character varying(36) NOT NULL, -- Уникальный идентификатор записи дома
+  houseguid character varying(36), -- Глобальный уникальный идентификатор дома
+  aoguid character varying(36), -- Guid записи родительского объекта (улицы, города, населенного пункта и т.п.)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
   statstatus integer, -- Состояние дома
-  normdoc uuid, -- Внешний ключ на нормативный документ
+  normdoc character varying(36), -- Внешний ключ на нормативный документ
   counter integer, -- Счетчик записей домов для КЛАДР 4
   CONSTRAINT dhouse_pkey PRIMARY KEY (houseid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE dhouse OWNER TO bpd_owner;
+ALTER TABLE dhouse OWNER TO {0};
 
 COMMENT ON TABLE dhouse IS 'Сведения по номерам домов улиц городов и населенных пунктов, номера земельных участков и т.п (удалённые объекты)';
 COMMENT ON COLUMN dhouse.postalcode IS 'Почтовый индекс';
@@ -274,11 +340,18 @@ COMMENT ON COLUMN dhouse.statstatus IS 'Состояние дома';
 COMMENT ON COLUMN dhouse.normdoc IS 'Внешний ключ на нормативный документ';
 COMMENT ON COLUMN dhouse.counter IS 'Счетчик записей домов для КЛАДР 4';
 
+CREATE TRIGGER dhouse_before_insert
+  BEFORE INSERT
+  ON dhouse
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS dhousint;
 CREATE TABLE dhousint
 (
   postalcode character varying(6), -- Почтовый индекс
   ifnsfl character varying(4), -- Код ИФНС ФЛ
-  terrifsnfl character varying(4), -- Код территориального участка ИФНС ФЛ
+  terrifnsfl character varying(4), -- Код территориального участка ИФНС ФЛ
   ifnsul character varying(4), -- Код ИФНС ЮЛ
   terrifnsul character varying(4), -- Код территориального участка ИФНС ЮЛ
   okato character varying(11), -- ОКАТО
@@ -286,25 +359,25 @@ CREATE TABLE dhousint
   updatedate date, -- Дата  внесения (обновления) записи
   intstart integer, -- Значение начала интервала
   intend integer, -- Значение окончания интервала
-  houseintid uuid NOT NULL, -- Идентификатор записи интервала домов
-  intguid uuid, -- Глобальный уникальный идентификатор интервала домов
-  aoguid uuid, -- Идентификатор объекта родительского объекта (улицы, города, населенного пункта и т.п.)
+  houseintid character varying(36) NOT NULL, -- Идентификатор записи интервала домов
+  intguid character varying(36), -- Глобальный уникальный идентификатор интервала домов
+  aoguid character varying(36), -- Идентификатор объекта родительского объекта (улицы, города, населенного пункта и т.п.)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
   intstatus integer, -- Статус интервала (обычный, четный, нечетный)
-  normdoc uuid, -- Внешний ключ на нормативный документ
+  normdoc character varying(36), -- Внешний ключ на нормативный документ
   counter integer, -- Счетчик записей домов для КЛАДР 4
   CONSTRAINT dhousint_pkey PRIMARY KEY (houseintid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE dhousint OWNER TO bpd_owner;
+ALTER TABLE dhousint OWNER TO {0};
 
 COMMENT ON TABLE dhousint IS 'Интервалы домов (удалённые объекты)';
 
 COMMENT ON COLUMN dhousint.postalcode IS 'Почтовый индекс';
 COMMENT ON COLUMN dhousint.ifnsfl IS 'Код ИФНС ФЛ';
-COMMENT ON COLUMN dhousint.terrifsnfl IS 'Код территориального участка ИФНС ФЛ';
+COMMENT ON COLUMN dhousint.terrifnsfl IS 'Код территориального участка ИФНС ФЛ';
 COMMENT ON COLUMN dhousint.ifnsul IS 'Код ИФНС ЮЛ';
 COMMENT ON COLUMN dhousint.terrifnsul IS 'Код территориального участка ИФНС ЮЛ';
 COMMENT ON COLUMN dhousint.okato IS 'ОКАТО';
@@ -321,6 +394,13 @@ COMMENT ON COLUMN dhousint.intstatus IS 'Статус интервала (обы
 COMMENT ON COLUMN dhousint.normdoc IS 'Внешний ключ на нормативный документ';
 COMMENT ON COLUMN dhousint.counter IS 'Счетчик записей домов для КЛАДР 4';
 
+CREATE TRIGGER dhousint_before_insert
+  BEFORE INSERT
+  ON dhousint
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS dlandmark;
 CREATE TABLE dlandmark
 (
   location character varying(500), -- Месторасположение ориентира
@@ -332,16 +412,16 @@ CREATE TABLE dlandmark
   okato character varying(11), -- ОКАТО
   oktmo character varying(11), -- ОКТМО
   updatedate date, -- Дата внесения (обновления) записи
-  landid uuid NOT NULL, -- Уникальный идентификатор записи ориентира
-  landguid uuid, -- Глобальный уникальный идентификатор ориентира
-  aoguid uuid, -- Уникальный идентификатор родительского объекта (улицы, города, населенного пункта и т.п.)
+  landid character varying(36) NOT NULL, -- Уникальный идентификатор записи ориентира
+  landguid character varying(36), -- Глобальный уникальный идентификатор ориентира
+  aoguid character varying(36), -- Уникальный идентификатор родительского объекта (улицы, города, населенного пункта и т.п.)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
   CONSTRAINT dlandmark_pkey PRIMARY KEY (landid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE dlandmark OWNER TO bpd_owner;
+ALTER TABLE dlandmark OWNER TO {0};
 
 COMMENT ON TABLE dlandmark IS 'Описание мест расположения  имущественных объектов (удалённые объекты)';
 COMMENT ON COLUMN dlandmark.location IS 'Месторасположение ориентира';
@@ -359,9 +439,16 @@ COMMENT ON COLUMN dlandmark.aoguid IS 'Уникальный идентифика
 COMMENT ON COLUMN dlandmark.startdate IS 'Начало действия записи';
 COMMENT ON COLUMN dlandmark.enddate IS 'Окончание действия записи';
 
+CREATE TRIGGER dlandmark_before_insert
+  BEFORE INSERT
+  ON dlandmark
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS dnordoc;
 CREATE TABLE dnordoc
 (
-  normdocid uuid NOT NULL, -- Идентификатор нормативного документа
+  normdocid character varying(36) NOT NULL, -- Идентификатор нормативного документа
   docname text, -- Наименование документа
   docdate date, -- Дата документа
   docnum character varying(20), -- Номер документа
@@ -371,7 +458,7 @@ CREATE TABLE dnordoc
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE dnordoc OWNER TO bpd_owner;
+ALTER TABLE dnordoc OWNER TO {0};
 
 COMMENT ON TABLE dnordoc IS 'Сведения по нормативному документу, являющемуся основанием присвоения адресному элементу наименования (удалённые объекты)';
 COMMENT ON COLUMN dnordoc.normdocid IS 'Идентификатор нормативного документа';
@@ -381,20 +468,36 @@ COMMENT ON COLUMN dnordoc.docnum IS 'Номер документа';
 COMMENT ON COLUMN dnordoc.doctype IS 'Тип документа';
 COMMENT ON COLUMN dnordoc.docimgid IS 'Идентификатор образа (внешний ключ)';
 
+CREATE TRIGGER dnordoc_before_insert
+  BEFORE INSERT
+  ON dnordoc
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS eststat;
 CREATE TABLE eststat
 (
   eststatid integer NOT NULL, -- Идентификатор статуса (ключ)
   name character varying(20) NOT NULL, -- Наименование
+  shortname character varying(20), -- Краткое наименование
   CONSTRAINT eststat_pkey PRIMARY KEY (eststatid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE eststat OWNER TO bpd_owner;
+ALTER TABLE eststat OWNER TO {0};
 
 COMMENT ON TABLE eststat IS 'Признак владения';
 COMMENT ON COLUMN eststat.eststatid IS 'Идентификатор статуса (ключ)';
 COMMENT ON COLUMN eststat.name IS 'Наименование';
+COMMENT ON COLUMN eststat.shortname IS 'Краткое наименование';
 
+CREATE TRIGGER eststat_before_insert
+  BEFORE INSERT
+  ON eststat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS house;
 CREATE TABLE house
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -410,19 +513,19 @@ CREATE TABLE house
   buildnum character varying(10), -- Номер корпуса
   strucnum character varying(10), -- Номер строения
   strstatus integer, -- Признак строения
-  houseid uuid NOT NULL, -- Уникальный идентификатор записи дома
-  houseguid uuid, -- Глобальный уникальный идентификатор дома
-  aoguid uuid, -- Guid записи родительского объекта (улицы, города, населенного пункта и т.п.)
+  houseid character varying(36) NOT NULL, -- Уникальный идентификатор записи дома
+  houseguid character varying(36), -- Глобальный уникальный идентификатор дома
+  aoguid character varying(36), -- Guid записи родительского объекта (улицы, города, населенного пункта и т.п.)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
   statstatus integer, -- Состояние дома
-  normdoc uuid, -- Внешний ключ на нормативный документ
+  normdoc character varying(36), -- Внешний ключ на нормативный документ
   counter integer, -- Счетчик записей домов для КЛАДР 4
   CONSTRAINT house_pkey PRIMARY KEY (houseid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE house OWNER TO bpd_owner;
+ALTER TABLE house OWNER TO {0};
 
 COMMENT ON TABLE house IS 'Сведения по номерам домов улиц городов и населенных пунктов, номера земельных участков и т.п';
 COMMENT ON COLUMN house.postalcode IS 'Почтовый индекс';
@@ -447,11 +550,18 @@ COMMENT ON COLUMN house.statstatus IS 'Состояние дома';
 COMMENT ON COLUMN house.normdoc IS 'Внешний ключ на нормативный документ';
 COMMENT ON COLUMN house.counter IS 'Счетчик записей домов для КЛАДР 4';
 
+CREATE TRIGGER house_before_insert
+  BEFORE INSERT
+  ON house
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS houseint;
 CREATE TABLE houseint
 (
   postalcode character varying(6), -- Почтовый индекс
   ifnsfl character varying(4), -- Код ИФНС ФЛ
-  terrifsnfl character varying(4), -- Код территориального участка ИФНС ФЛ
+  terrifnsfl character varying(4), -- Код территориального участка ИФНС ФЛ
   ifnsul character varying(4), -- Код ИФНС ЮЛ
   terrifnsul character varying(4), -- Код территориального участка ИФНС ЮЛ
   okato character varying(11), -- ОКАТО
@@ -459,24 +569,24 @@ CREATE TABLE houseint
   updatedate date, -- Дата  внесения (обновления) записи
   intstart integer, -- Значение начала интервала
   intend integer, -- Значение окончания интервала
-  houseintid uuid NOT NULL, -- Идентификатор записи интервала домов
-  intguid uuid, -- Глобальный уникальный идентификатор интервала домов
-  aoguid uuid, -- Идентификатор объекта родительского объекта (улицы, города, населенного пункта и т.п.)
+  houseintid character varying(36) NOT NULL, -- Идентификатор записи интервала домов
+  intguid character varying(36), -- Глобальный уникальный идентификатор интервала домов
+  aoguid character varying(36), -- Идентификатор объекта родительского объекта (улицы, города, населенного пункта и т.п.)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
   intstatus integer, -- Статус интервала (обычный, четный, нечетный)
-  normdoc uuid, -- Внешний ключ на нормативный документ
+  normdoc character varying(36), -- Внешний ключ на нормативный документ
   counter integer, -- Счетчик записей домов для КЛАДР 4
   CONSTRAINT houseint_pkey PRIMARY KEY (houseintid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE houseint OWNER TO bpd_owner;
+ALTER TABLE houseint OWNER TO {0};
 
 COMMENT ON TABLE houseint IS 'Интервалы домов';
 COMMENT ON COLUMN houseint.postalcode IS 'Почтовый индекс';
 COMMENT ON COLUMN houseint.ifnsfl IS 'Код ИФНС ФЛ';
-COMMENT ON COLUMN houseint.terrifsnfl IS 'Код территориального участка ИФНС ФЛ';
+COMMENT ON COLUMN houseint.terrifnsfl IS 'Код территориального участка ИФНС ФЛ';
 COMMENT ON COLUMN houseint.ifnsul IS 'Код ИФНС ЮЛ';
 COMMENT ON COLUMN houseint.terrifnsul IS 'Код территориального участка ИФНС ЮЛ';
 COMMENT ON COLUMN houseint.okato IS 'ОКАТО';
@@ -493,20 +603,34 @@ COMMENT ON COLUMN houseint.intstatus IS 'Статус интервала (обы
 COMMENT ON COLUMN houseint.normdoc IS 'Внешний ключ на нормативный документ';
 COMMENT ON COLUMN houseint.counter IS 'Счетчик записей домов для КЛАДР 4';
 
+CREATE TRIGGER houseint_before_insert
+  BEFORE INSERT
+  ON houseint
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS hststat;
 CREATE TABLE hststat
 (
   housestid integer NOT NULL, -- Идентификатор статуса (ключ)
-  name character varying(60) NOT NULL, -- Наименование
+  name character varying(60), -- Наименование
   CONSTRAINT hststat_pkey PRIMARY KEY (housestid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE hststat OWNER TO bpd_owner;
+ALTER TABLE hststat OWNER TO {0};
 
 COMMENT ON TABLE hststat IS 'Статус состояния объектов недвижимости';
 COMMENT ON COLUMN hststat.housestid IS 'Идентификатор статуса (ключ)';
 COMMENT ON COLUMN hststat.name IS 'Наименование';
 
+CREATE TRIGGER hststat_before_insert
+  BEFORE INSERT
+  ON hststat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS intvstat;
 CREATE TABLE intvstat
 (
   intvstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -515,12 +639,19 @@ CREATE TABLE intvstat
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE intvstat OWNER TO bpd_owner;
+ALTER TABLE intvstat OWNER TO {0};
 
 COMMENT ON TABLE intvstat IS 'Статус интервала домов';
 COMMENT ON COLUMN intvstat.intvstatid IS 'Идентификатор статуса (ключ)';
 COMMENT ON COLUMN intvstat.name IS 'Наименование (обычный, четный, нечетный)';
 
+CREATE TRIGGER intvstat_before_insert
+  BEFORE INSERT
+  ON intvstat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS landmark;
 CREATE TABLE landmark
 (
   location character varying(500), -- Месторасположение ориентира
@@ -532,16 +663,16 @@ CREATE TABLE landmark
   okato character varying(11), -- ОКАТО
   oktmo character varying(11), -- ОКТМО
   updatedate date, -- Дата внесения (обновления) записи
-  landid uuid NOT NULL, -- Уникальный идентификатор записи ориентира
-  landguid uuid, -- Глобальный уникальный идентификатор ориентира
-  aoguid uuid, -- Уникальный идентификатор родительского объекта (улицы, города, населенного пункта и т.п.)
+  landid character varying(36) NOT NULL, -- Уникальный идентификатор записи ориентира
+  landguid character varying(36), -- Глобальный уникальный идентификатор ориентира
+  aoguid character varying(36), -- Уникальный идентификатор родительского объекта (улицы, города, населенного пункта и т.п.)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
   CONSTRAINT landmark_pkey PRIMARY KEY (landid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE landmark OWNER TO bpd_owner;
+ALTER TABLE landmark OWNER TO {0};
 
 COMMENT ON TABLE landmark IS 'Описание мест расположения  имущественных объектов';
 COMMENT ON COLUMN landmark.location IS 'Месторасположение ориентира';
@@ -559,19 +690,26 @@ COMMENT ON COLUMN landmark.aoguid IS 'Уникальный идентифика�
 COMMENT ON COLUMN landmark.startdate IS 'Начало действия записи';
 COMMENT ON COLUMN landmark.enddate IS 'Окончание действия записи';
 
+CREATE TRIGGER landmark_before_insert
+  BEFORE INSERT
+  ON landmark
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS nordoc;
 CREATE TABLE nordoc
 (
-  normdocid uuid NOT NULL, -- Идентификатор нормативного документа
+  normdocid character varying(36) NOT NULL, -- Идентификатор нормативного документа
   docname text, -- Наименование документа
   docdate date, -- Дата документа
   docnum character varying(20), -- Номер документа
   doctype integer, -- Тип документа
-  docimgid integer, -- Идентификатор образа (внешний ключ)
+  docimgid text, -- Идентификатор образа (внешний ключ)
   CONSTRAINT nordoc_pkey PRIMARY KEY (normdocid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE nordoc OWNER TO bpd_owner;
+ALTER TABLE nordoc OWNER TO {0};
 
 COMMENT ON TABLE nordoc IS 'Сведения по нормативному документу, являющемуся основанием присвоения адресному элементу наименования';
 COMMENT ON COLUMN nordoc.normdocid IS 'Идентификатор нормативного документа';
@@ -581,6 +719,13 @@ COMMENT ON COLUMN nordoc.docnum IS 'Номер документа';
 COMMENT ON COLUMN nordoc.doctype IS 'Тип документа';
 COMMENT ON COLUMN nordoc.docimgid IS 'Идентификатор образа (внешний ключ)';
 
+CREATE TRIGGER nordoc_before_insert
+  BEFORE INSERT
+  ON nordoc
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS operstat;
 CREATE TABLE operstat
 (
   operstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -589,7 +734,7 @@ CREATE TABLE operstat
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE operstat OWNER TO bpd_owner;
+ALTER TABLE operstat OWNER TO {0};
 
 COMMENT ON TABLE operstat IS 'Статус действия';
 COMMENT ON COLUMN operstat.operstatid IS 'Идентификатор статуса (ключ)';
@@ -610,6 +755,13 @@ COMMENT ON COLUMN operstat.name IS 'Наименование
 61 – Создание нового адресного объекта в результате дробления;
 70 – Восстановление прекратившего существование объекта';
 
+CREATE TRIGGER operstat_before_insert
+  BEFORE INSERT
+  ON operstat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS socrbase;
 CREATE TABLE socrbase
 (
   level integer NOT NULL, -- Уровень адресного объекта
@@ -620,7 +772,7 @@ CREATE TABLE socrbase
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE socrbase OWNER TO bpd_owner;
+ALTER TABLE socrbase OWNER TO {0};
 
 COMMENT ON TABLE socrbase IS 'Типы адресных объектов';
 COMMENT ON COLUMN socrbase.level IS 'Уровень адресного объекта';
@@ -628,18 +780,31 @@ COMMENT ON COLUMN socrbase.scname IS 'Краткое наименование т
 COMMENT ON COLUMN socrbase.socrname IS 'Полное наименование типа объекта';
 COMMENT ON COLUMN socrbase.kod_t_st IS 'Ключевое поле';
 
+CREATE TRIGGER socrbase_before_insert
+  BEFORE INSERT
+  ON socrbase
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS strstat;
 CREATE TABLE strstat
 (
   strstatid integer NOT NULL, -- Идентификатор статуса (ключ)
   name character varying(20) NOT NULL, -- Наименование
-  shortname character varying(20) NOT NULL, -- Краткое наименование
+  shortname character varying(20), -- Краткое наименование
   CONSTRAINT strstat_pkey PRIMARY KEY (strstatid)
 )
 WITH (OIDS=FALSE);
 
-ALTER TABLE strstat OWNER TO bpd_owner;
+ALTER TABLE strstat OWNER TO {0};
 
 COMMENT ON TABLE strstat IS 'Признак владения';
 COMMENT ON COLUMN strstat.strstatid IS 'Идентификатор статуса (ключ)';
 COMMENT ON COLUMN strstat.name IS 'Наименование';
 COMMENT ON COLUMN strstat.shortname IS 'Краткое наименование';
+
+CREATE TRIGGER strstat_before_insert
+  BEFORE INSERT
+  ON strstat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
