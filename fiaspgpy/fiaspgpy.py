@@ -108,6 +108,25 @@ class pgworker:
 		else:
 			return 'null'
 
+	def insert_data(self,tablename,records):
+		result = {"status": "", "data": ""}
+		lq = ''
+		try:
+			with self._connect() as conn:
+				cur = conn.cursor()
+				for row in records:
+					statement = "INSERT INTO {0} ({1}) VALUES ({2})".format(tablename,','.join(row.keys()).lower(),','.join('%s' for i in xrange(len(row.values()))))
+					if row.values()[0] == 'db9b8f3c-f8a7-4260-a3db-5f5ac0211d99':
+						print 1
+					cur.execute(statement,tuple(row.values()))
+					lq = cur.query
+				conn.commit()
+				cur.close()
+				result = {"status": apylog.SEVERITY_INFO, "data": "%s: all data inserted" % tablename}
+		except Exception,err:
+			result = {"status": apylog.SEVERITY_ERROR, "data": err.message.decode('utf8')}
+		return result
+
 	def upsert_data(self,config,tablename,pkey_name,records):
 		result = {"status": "", "data": ""}
 		try:
@@ -239,11 +258,12 @@ class fiasloader:
 			pkey_res = self.pg_worker.get_pkey_name(self.config_worker.config_data,tbl)
 			if pkey_res["status"] == apylog.SEVERITY_INFO:
 				pkey = pkey_res["data"]
-				self.logger.addMessage(apylog.SEVERITY_INFO, "Start load data from file %s" % dbf)
+				self.logger.addMessage(apylog.SEVERITY_INFO, "%s: start working" % dbf)
 				with self.dbf_worker.open_file(dbf) as dbfdata:
-					upsert_result = self.pg_worker.upsert_data(self.config_worker.config_data,tbl,pkey,dbfdata.records)
+					#upsert_result = self.pg_worker.upsert_data(self.config_worker.config_data,tbl,pkey,dbfdata.records)
+					upsert_result = self.pg_worker.insert_data(tbl,dbfdata.records)
 					self.logger.addMessage(upsert_result["status"],upsert_result["data"])
-				self.logger.addMessage(apylog.SEVERITY_INFO, "Work with %s finished" % dbf)
+				self.logger.addMessage(apylog.SEVERITY_INFO, "%s: finished" % dbf)
 			else:
 				self.logger.addMessage(apylog.SEVERITY_ERROR,pkey_res["data"])
 			

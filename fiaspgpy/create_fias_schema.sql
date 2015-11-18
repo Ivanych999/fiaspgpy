@@ -13,7 +13,37 @@ SET client_min_messages = warning;
 SET search_path = public, pg_catalog;
 SET default_with_oids = false;
 
-DROP TABLE actstat;
+CREATE OR REPLACE FUNCTION public.fias_insert_before()
+  RETURNS trigger AS
+$BODY$
+DECLARE
+    p_key_name text;
+    attributes text[];
+    count_id integer;
+BEGIN
+
+    EXECUTE 'select 
+        attname from pg_attribute 
+        where attrelid in (select conindid from pg_constraint where contype = ''p'' and conrelid = ' || TG_RELID || ');' INTO p_key_name;
+        
+    EXECUTE 'select array(select attname from pg_attribute where attrelid = ' || TG_RELID || ' and attnum > 0);' into attributes;
+    
+    EXECUTE 'select count(*) from ' || TG_TABLE_NAME || ' where ' || p_key_name || ' = $1.' || p_key_name || ';' into count_id using NEW;
+    
+    IF count_id > 0 THEN
+        EXECUTE 'UPDATE ' || TG_TABLE_NAME || ' SET (' || array_to_string(attributes,',') || ') = ' || NEW.* || ' WHERE ' || p_key_name || ' = $1.' || p_key_name || ';' USING NEW;
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF; 
+END;
+$BODY$
+  LANGUAGE plpgsql VOLATILE
+  COST 100;
+ALTER FUNCTION public.fias_insert_before()
+  OWNER TO {0};
+
+DROP TABLE IF EXISTS actstat;
 CREATE TABLE actstat
 (
   actstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -30,7 +60,13 @@ COMMENT ON COLUMN actstat.name IS 'Наименование
 0 – Не актуальный
 1 – Актуальный (последняя запись по адресному объекту)';
 
-DROP TABLE addrobj;
+CREATE TRIGGER actstat_before_insert
+  BEFORE INSERT
+  ON actstat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS addrobj;
 CREATE TABLE addrobj
 (
   aoguid character varying(36) NOT NULL, -- Глобальный уникальный идентификатор адресного объекта
@@ -111,7 +147,13 @@ COMMENT ON COLUMN addrobj.startdate IS 'Начало действия запис
 COMMENT ON COLUMN addrobj.enddate IS 'Окончание действия записи';
 COMMENT ON COLUMN addrobj.normdoc IS 'Внешний ключ на нормативный документ';
 
-DROP TABLE centerst;
+CREATE TRIGGER addrobj_before_insert
+  BEFORE INSERT
+  ON addrobj
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS centerst;
 CREATE TABLE centerst
 (
   centerstid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -126,7 +168,13 @@ COMMENT ON TABLE centerst IS 'Статус центра';
 COMMENT ON COLUMN centerst.centerstid IS 'Идентификатор статуса (ключ)';
 COMMENT ON COLUMN centerst.name IS 'Наименование';
 
-DROP TABLE curentst;
+CREATE TRIGGER centerst_before_insert
+  BEFORE INSERT
+  ON centerst
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS curentst;
 CREATE TABLE curentst
 (
   curentstid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -146,7 +194,13 @@ COMMENT ON COLUMN curentst.name IS 'Наименование
 51 - переподчиненный, 
 99 - несуществующий)';
 
-DROP TABLE daddrobj;
+CREATE TRIGGER curentst_before_insert
+  BEFORE INSERT
+  ON curentst
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS daddrobj;
 CREATE TABLE daddrobj
 (
   aoguid character varying(36) NOT NULL, -- Глобальный уникальный идентификатор адресного объекта
@@ -227,7 +281,13 @@ COMMENT ON COLUMN daddrobj.startdate IS 'Начало действия запи�
 COMMENT ON COLUMN daddrobj.enddate IS 'Окончание действия записи';
 COMMENT ON COLUMN daddrobj.normdoc IS 'Внешний ключ на нормативный документ';
 
-DROP TABLE dhouse;
+CREATE TRIGGER daddrobj_before_insert
+  BEFORE INSERT
+  ON daddrobj
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS dhouse;
 CREATE TABLE dhouse
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -280,7 +340,13 @@ COMMENT ON COLUMN dhouse.statstatus IS 'Состояние дома';
 COMMENT ON COLUMN dhouse.normdoc IS 'Внешний ключ на нормативный документ';
 COMMENT ON COLUMN dhouse.counter IS 'Счетчик записей домов для КЛАДР 4';
 
-DROP TABLE dhousint;
+CREATE TRIGGER dhouse_before_insert
+  BEFORE INSERT
+  ON dhouse
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS dhousint;
 CREATE TABLE dhousint
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -328,7 +394,13 @@ COMMENT ON COLUMN dhousint.intstatus IS 'Статус интервала (обы
 COMMENT ON COLUMN dhousint.normdoc IS 'Внешний ключ на нормативный документ';
 COMMENT ON COLUMN dhousint.counter IS 'Счетчик записей домов для КЛАДР 4';
 
-DROP TABLE dlandmark;
+CREATE TRIGGER dhousint_before_insert
+  BEFORE INSERT
+  ON dhousint
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS dlandmark;
 CREATE TABLE dlandmark
 (
   location character varying(500), -- Месторасположение ориентира
@@ -367,7 +439,13 @@ COMMENT ON COLUMN dlandmark.aoguid IS 'Уникальный идентифика
 COMMENT ON COLUMN dlandmark.startdate IS 'Начало действия записи';
 COMMENT ON COLUMN dlandmark.enddate IS 'Окончание действия записи';
 
-DROP TABLE dnordoc;
+CREATE TRIGGER dlandmark_before_insert
+  BEFORE INSERT
+  ON dlandmark
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS dnordoc;
 CREATE TABLE dnordoc
 (
   normdocid character varying(36) NOT NULL, -- Идентификатор нормативного документа
@@ -390,7 +468,13 @@ COMMENT ON COLUMN dnordoc.docnum IS 'Номер документа';
 COMMENT ON COLUMN dnordoc.doctype IS 'Тип документа';
 COMMENT ON COLUMN dnordoc.docimgid IS 'Идентификатор образа (внешний ключ)';
 
-DROP TABLE eststat;
+CREATE TRIGGER dnordoc_before_insert
+  BEFORE INSERT
+  ON dnordoc
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS eststat;
 CREATE TABLE eststat
 (
   eststatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -407,7 +491,13 @@ COMMENT ON COLUMN eststat.eststatid IS 'Идентификатор статус�
 COMMENT ON COLUMN eststat.name IS 'Наименование';
 COMMENT ON COLUMN eststat.shortname IS 'Краткое наименование';
 
-DROP TABLE house;
+CREATE TRIGGER eststat_before_insert
+  BEFORE INSERT
+  ON eststat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS house;
 CREATE TABLE house
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -460,7 +550,13 @@ COMMENT ON COLUMN house.statstatus IS 'Состояние дома';
 COMMENT ON COLUMN house.normdoc IS 'Внешний ключ на нормативный документ';
 COMMENT ON COLUMN house.counter IS 'Счетчик записей домов для КЛАДР 4';
 
-DROP TABLE houseint;
+CREATE TRIGGER house_before_insert
+  BEFORE INSERT
+  ON house
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS houseint;
 CREATE TABLE houseint
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -507,7 +603,13 @@ COMMENT ON COLUMN houseint.intstatus IS 'Статус интервала (обы
 COMMENT ON COLUMN houseint.normdoc IS 'Внешний ключ на нормативный документ';
 COMMENT ON COLUMN houseint.counter IS 'Счетчик записей домов для КЛАДР 4';
 
-DROP TABLE hststat;
+CREATE TRIGGER houseint_before_insert
+  BEFORE INSERT
+  ON houseint
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS hststat;
 CREATE TABLE hststat
 (
   housestid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -522,7 +624,13 @@ COMMENT ON TABLE hststat IS 'Статус состояния объектов н
 COMMENT ON COLUMN hststat.housestid IS 'Идентификатор статуса (ключ)';
 COMMENT ON COLUMN hststat.name IS 'Наименование';
 
-DROP TABLE intvstat;
+CREATE TRIGGER hststat_before_insert
+  BEFORE INSERT
+  ON hststat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS intvstat;
 CREATE TABLE intvstat
 (
   intvstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -537,7 +645,13 @@ COMMENT ON TABLE intvstat IS 'Статус интервала домов';
 COMMENT ON COLUMN intvstat.intvstatid IS 'Идентификатор статуса (ключ)';
 COMMENT ON COLUMN intvstat.name IS 'Наименование (обычный, четный, нечетный)';
 
-DROP TABLE landmark;
+CREATE TRIGGER intvstat_before_insert
+  BEFORE INSERT
+  ON intvstat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS landmark;
 CREATE TABLE landmark
 (
   location character varying(500), -- Месторасположение ориентира
@@ -576,7 +690,13 @@ COMMENT ON COLUMN landmark.aoguid IS 'Уникальный идентифика�
 COMMENT ON COLUMN landmark.startdate IS 'Начало действия записи';
 COMMENT ON COLUMN landmark.enddate IS 'Окончание действия записи';
 
-DROP TABLE nordoc;
+CREATE TRIGGER landmark_before_insert
+  BEFORE INSERT
+  ON landmark
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS nordoc;
 CREATE TABLE nordoc
 (
   normdocid character varying(36) NOT NULL, -- Идентификатор нормативного документа
@@ -599,7 +719,13 @@ COMMENT ON COLUMN nordoc.docnum IS 'Номер документа';
 COMMENT ON COLUMN nordoc.doctype IS 'Тип документа';
 COMMENT ON COLUMN nordoc.docimgid IS 'Идентификатор образа (внешний ключ)';
 
-DROP TABLE operstat;
+CREATE TRIGGER nordoc_before_insert
+  BEFORE INSERT
+  ON nordoc
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS operstat;
 CREATE TABLE operstat
 (
   operstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -629,7 +755,13 @@ COMMENT ON COLUMN operstat.name IS 'Наименование
 61 – Создание нового адресного объекта в результате дробления;
 70 – Восстановление прекратившего существование объекта';
 
-DROP TABLE socrbase;
+CREATE TRIGGER operstat_before_insert
+  BEFORE INSERT
+  ON operstat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS socrbase;
 CREATE TABLE socrbase
 (
   level integer NOT NULL, -- Уровень адресного объекта
@@ -648,7 +780,13 @@ COMMENT ON COLUMN socrbase.scname IS 'Краткое наименование т
 COMMENT ON COLUMN socrbase.socrname IS 'Полное наименование типа объекта';
 COMMENT ON COLUMN socrbase.kod_t_st IS 'Ключевое поле';
 
-DROP TABLE strstat;
+CREATE TRIGGER socrbase_before_insert
+  BEFORE INSERT
+  ON socrbase
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
+
+DROP TABLE IF EXISTS strstat;
 CREATE TABLE strstat
 (
   strstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -664,3 +802,9 @@ COMMENT ON TABLE strstat IS 'Признак владения';
 COMMENT ON COLUMN strstat.strstatid IS 'Идентификатор статуса (ключ)';
 COMMENT ON COLUMN strstat.name IS 'Наименование';
 COMMENT ON COLUMN strstat.shortname IS 'Краткое наименование';
+
+CREATE TRIGGER strstat_before_insert
+  BEFORE INSERT
+  ON strstat
+  FOR EACH ROW
+  EXECUTE PROCEDURE fias_insert_before();
