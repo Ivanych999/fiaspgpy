@@ -276,7 +276,6 @@ class fiasloader:
 			for _ in xrange(self.config_worker.config_data["threads_count"]):
 				thread_ = threading.Thread(target=self._doLoad)
 				thread_.start()
-
 			while threading.active_count() > 1:
 				time.sleep(1)
 

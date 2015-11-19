@@ -1,13 +1,13 @@
 {
 "fias_table_names":["addrobj", "house", "houseint", "landmark", "nordoc", "socrbase", "curentst", "actstat", "operstat", "centerst", "intvstat", "hststat", "eststat", "strstat", "daddrobj", "dhouse", "dhousint", "dlandmark", "dnordoc"],
 "fias_dtables":{"daddrobj": "addrobj", "dhouse": "house", "dhousint": "houseint", "dlandmark": "landmark", "dnordoc": "nordoc"},
-"dbf_path": "D:\\Data\\fias_dbf",
+"dbf_path": "D:\\work\\data\\fias_dbf",
 "pg_parameters": {
-	"host": "172.24.2.150",
+	"host": "localhost",
 	"port": "5432",
 	"dbname": "fias",
-	"user": "bpd_owner",
-	"password": "Prime#52"
+	"user": "dataeditor",
+	"password": "dataeditor"
 	},
 "data_types": {
 	"integer": {"type": "N"},

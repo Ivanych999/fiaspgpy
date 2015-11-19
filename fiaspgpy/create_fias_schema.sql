@@ -28,10 +28,17 @@ BEGIN
         
     EXECUTE 'select array(select attname from pg_attribute where attrelid = ' || TG_RELID || ' and attnum > 0);' into attributes;
     
+<<<<<<< HEAD
     EXECUTE 'select count(*) from ' || TG_TABLE_NAME || ' where ' || p_key_name || ' = $1.' || p_key_name || ';' into count_id using NEW;
     
     IF count_id > 0 THEN
         EXECUTE 'UPDATE ' || TG_TABLE_NAME || ' SET (' || array_to_string(attributes,',') || ') = ' || NEW.* || ' WHERE ' || p_key_name || ' = $1.' || p_key_name || ';' USING NEW;
+=======
+    EXECUTE 'select count(*) from ' || TG_TABLE_NAME || ' where ' || p_key_name || ' = ($1).' || p_key_name || ';' into count_id using NEW;
+    
+    IF count_id > 0 THEN
+        EXECUTE 'UPDATE ' || TG_TABLE_NAME || ' SET (' || array_to_string(attributes,',') || ') = (($1).*) WHERE ' || p_key_name || ' = ($1).' || p_key_name || ';' USING NEW;
+>>>>>>> origin/master
         RETURN NULL;
     ELSE
         RETURN NEW;
@@ -807,4 +814,8 @@ CREATE TRIGGER strstat_before_insert
   BEFORE INSERT
   ON strstat
   FOR EACH ROW
+<<<<<<< HEAD
   EXECUTE PROCEDURE fias_insert_before();
+=======
+  EXECUTE PROCEDURE fias_insert_before();
+>>>>>>> origin/master
