@@ -19,26 +19,36 @@ $BODY$
 DECLARE
     p_key_name text;
     attributes text[];
+    attr text;
+    n_attributes text[];
     count_id integer;
+    rec record;
 BEGIN
 
     EXECUTE 'select 
         attname from pg_attribute 
-        where attrelid in (select conindid from pg_constraint where contype = ''p'' and conrelid = ' || TG_RELID || ');' INTO p_key_name;
+        where attrelid in 
+		(select conindid from pg_constraint 
+		where contype = ''p'' and conrelid = ' || TG_RELID || ');' INTO p_key_name;
         
     EXECUTE 'select array(select attname from pg_attribute where attrelid = ' || TG_RELID || ' and attnum > 0);' into attributes;
     
-<<<<<<< HEAD
     EXECUTE 'select count(*) from ' || TG_TABLE_NAME || ' where ' || p_key_name || ' = $1.' || p_key_name || ';' into count_id using NEW;
     
     IF count_id > 0 THEN
-        EXECUTE 'UPDATE ' || TG_TABLE_NAME || ' SET (' || array_to_string(attributes,',') || ') = ' || NEW.* || ' WHERE ' || p_key_name || ' = $1.' || p_key_name || ';' USING NEW;
-=======
-    EXECUTE 'select count(*) from ' || TG_TABLE_NAME || ' where ' || p_key_name || ' = ($1).' || p_key_name || ';' into count_id using NEW;
-    
-    IF count_id > 0 THEN
-        EXECUTE 'UPDATE ' || TG_TABLE_NAME || ' SET (' || array_to_string(attributes,',') || ') = (($1).*) WHERE ' || p_key_name || ' = ($1).' || p_key_name || ';' USING NEW;
->>>>>>> origin/master
+
+        EXECUTE 'CREATE TEMPORARY TABLE new_row (LIKE ' || quote_ident(TG_TABLE_NAME) || ') ON COMMIT DROP';
+        INSERT INTO new_row SELECT NEW.*;
+
+        FOR i in 1..array_upper(attributes, 1) 
+        LOOP
+	    n_attributes[i] = 'new_row.' || attributes[i];
+	END LOOP;
+        
+        EXECUTE format('UPDATE %1$I SET (%2$s) = (%3$s) FROM new_row WHERE %1$I.%4$s = new_row.%4$s;',TG_TABLE_NAME,array_to_string(attributes,','),array_to_string(n_attributes,','),p_key_name);
+
+		EXECUTE 'DROP TABLE IF EXISTS new_row;';
+
         RETURN NULL;
     ELSE
         RETURN NEW;
@@ -50,7 +60,7 @@ $BODY$
 ALTER FUNCTION public.fias_insert_before()
   OWNER TO {0};
 
-DROP TABLE IF EXISTS actstat;
+DROP TABLE IF EXISTS actstat CASCADE;
 CREATE TABLE actstat
 (
   actstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -73,7 +83,7 @@ CREATE TRIGGER actstat_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS addrobj;
+DROP TABLE IF EXISTS addrobj CASCADE;
 CREATE TABLE addrobj
 (
   aoguid character varying(36) NOT NULL, -- Глобальный уникальный идентификатор адресного объекта
@@ -110,6 +120,7 @@ CREATE TABLE addrobj
   currstatus integer, -- Статус актуальности КЛАДР 4 (последние две цифры в коде)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
+  livestatus integer,
   normdoc character varying(36), -- Внешний ключ на нормативный документ
   CONSTRAINT addrobj_pkey PRIMARY KEY (aoguid)
 )
@@ -152,6 +163,7 @@ COMMENT ON COLUMN addrobj.operstatus IS 'Статус действия над з
 COMMENT ON COLUMN addrobj.currstatus IS 'Статус актуальности КЛАДР 4 (последние две цифры в коде)';
 COMMENT ON COLUMN addrobj.startdate IS 'Начало действия записи';
 COMMENT ON COLUMN addrobj.enddate IS 'Окончание действия записи';
+COMMENT ON COLUMN addrobj.livestatus IS 'Новое поле!!!';
 COMMENT ON COLUMN addrobj.normdoc IS 'Внешний ключ на нормативный документ';
 
 CREATE TRIGGER addrobj_before_insert
@@ -160,7 +172,7 @@ CREATE TRIGGER addrobj_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS centerst;
+DROP TABLE IF EXISTS centerst CASCADE;
 CREATE TABLE centerst
 (
   centerstid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -181,7 +193,7 @@ CREATE TRIGGER centerst_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS curentst;
+DROP TABLE IF EXISTS curentst CASCADE;
 CREATE TABLE curentst
 (
   curentstid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -207,7 +219,7 @@ CREATE TRIGGER curentst_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS daddrobj;
+DROP TABLE IF EXISTS daddrobj CASCADE;
 CREATE TABLE daddrobj
 (
   aoguid character varying(36) NOT NULL, -- Глобальный уникальный идентификатор адресного объекта
@@ -244,6 +256,7 @@ CREATE TABLE daddrobj
   currstatus integer, -- Статус актуальности КЛАДР 4 (последние две цифры в коде)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
+  livestatus integer, -- Новое поле!!!
   normdoc character varying(36), -- Внешний ключ на нормативный документ
   CONSTRAINT daddrobj_pkey PRIMARY KEY (aoguid)
 )
@@ -286,6 +299,7 @@ COMMENT ON COLUMN daddrobj.operstatus IS 'Статус действия над �
 COMMENT ON COLUMN daddrobj.currstatus IS 'Статус актуальности КЛАДР 4 (последние две цифры в коде)';
 COMMENT ON COLUMN daddrobj.startdate IS 'Начало действия записи';
 COMMENT ON COLUMN daddrobj.enddate IS 'Окончание действия записи';
+COMMENT ON COLUMN daddrobj.livestatus IS 'Новое поле!!!';
 COMMENT ON COLUMN daddrobj.normdoc IS 'Внешний ключ на нормативный документ';
 
 CREATE TRIGGER daddrobj_before_insert
@@ -294,7 +308,7 @@ CREATE TRIGGER daddrobj_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS dhouse;
+DROP TABLE IF EXISTS dhouse CASCADE;
 CREATE TABLE dhouse
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -353,7 +367,7 @@ CREATE TRIGGER dhouse_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS dhousint;
+DROP TABLE IF EXISTS dhousint CASCADE;
 CREATE TABLE dhousint
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -407,14 +421,14 @@ CREATE TRIGGER dhousint_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS dlandmark;
+DROP TABLE IF EXISTS dlandmark CASCADE;
 CREATE TABLE dlandmark
 (
   location character varying(500), -- Месторасположение ориентира
   postalcode character varying(6), -- Почтовый индекс
   ifnsfl character varying(4), -- Код ИФНС ФЛ
   terrifnsfl character varying(4), -- Код территориального участка ИФНС ФЛ
-  infsul character varying(4), -- Код ИФНС ЮЛ
+  ifnsul character varying(4), -- Код ИФНС ЮЛ
   terrifnsul character varying(4), -- Код территориального участка ИФНС ЮЛ
   okato character varying(11), -- ОКАТО
   oktmo character varying(11), -- ОКТМО
@@ -424,6 +438,7 @@ CREATE TABLE dlandmark
   aoguid character varying(36), -- Уникальный идентификатор родительского объекта (улицы, города, населенного пункта и т.п.)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
+  normdoc character varying(36), -- Внешний ключ на нормативный документ
   CONSTRAINT dlandmark_pkey PRIMARY KEY (landid)
 )
 WITH (OIDS=FALSE);
@@ -435,7 +450,7 @@ COMMENT ON COLUMN dlandmark.location IS 'Месторасположение ор
 COMMENT ON COLUMN dlandmark.postalcode IS 'Почтовый индекс';
 COMMENT ON COLUMN dlandmark.ifnsfl IS 'Код ИФНС ФЛ';
 COMMENT ON COLUMN dlandmark.terrifnsfl IS 'Код территориального участка ИФНС ФЛ';
-COMMENT ON COLUMN dlandmark.infsul IS 'Код ИФНС ЮЛ';
+COMMENT ON COLUMN dlandmark.ifnsul IS 'Код ИФНС ЮЛ';
 COMMENT ON COLUMN dlandmark.terrifnsul IS 'Код территориального участка ИФНС ЮЛ';
 COMMENT ON COLUMN dlandmark.okato IS 'ОКАТО';
 COMMENT ON COLUMN dlandmark.oktmo IS 'ОКТМО';
@@ -445,6 +460,7 @@ COMMENT ON COLUMN dlandmark.landguid IS 'Глобальный уникальны
 COMMENT ON COLUMN dlandmark.aoguid IS 'Уникальный идентификатор родительского объекта (улицы, города, населенного пункта и т.п.)';
 COMMENT ON COLUMN dlandmark.startdate IS 'Начало действия записи';
 COMMENT ON COLUMN dlandmark.enddate IS 'Окончание действия записи';
+COMMENT ON COLUMN dlandmark.normdoc IS 'Внешний ключ на нормативный документ';
 
 CREATE TRIGGER dlandmark_before_insert
   BEFORE INSERT
@@ -452,7 +468,7 @@ CREATE TRIGGER dlandmark_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS dnordoc;
+DROP TABLE IF EXISTS dnordoc CASCADE;
 CREATE TABLE dnordoc
 (
   normdocid character varying(36) NOT NULL, -- Идентификатор нормативного документа
@@ -460,7 +476,7 @@ CREATE TABLE dnordoc
   docdate date, -- Дата документа
   docnum character varying(20), -- Номер документа
   doctype integer, -- Тип документа
-  docimgid integer, -- Идентификатор образа (внешний ключ)
+  docimgid text, -- Идентификатор образа (внешний ключ)
   CONSTRAINT dnordoc_pkey PRIMARY KEY (normdocid)
 )
 WITH (OIDS=FALSE);
@@ -481,7 +497,7 @@ CREATE TRIGGER dnordoc_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS eststat;
+DROP TABLE IF EXISTS eststat CASCADE;
 CREATE TABLE eststat
 (
   eststatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -504,7 +520,7 @@ CREATE TRIGGER eststat_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS house;
+DROP TABLE IF EXISTS house CASCADE;
 CREATE TABLE house
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -563,7 +579,7 @@ CREATE TRIGGER house_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS houseint;
+DROP TABLE IF EXISTS houseint CASCADE;
 CREATE TABLE houseint
 (
   postalcode character varying(6), -- Почтовый индекс
@@ -616,7 +632,7 @@ CREATE TRIGGER houseint_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS hststat;
+DROP TABLE IF EXISTS hststat CASCADE;
 CREATE TABLE hststat
 (
   housestid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -637,7 +653,7 @@ CREATE TRIGGER hststat_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS intvstat;
+DROP TABLE IF EXISTS intvstat CASCADE;
 CREATE TABLE intvstat
 (
   intvstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -658,14 +674,14 @@ CREATE TRIGGER intvstat_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS landmark;
+DROP TABLE IF EXISTS landmark CASCADE;
 CREATE TABLE landmark
 (
   location character varying(500), -- Месторасположение ориентира
   postalcode character varying(6), -- Почтовый индекс
   ifnsfl character varying(4), -- Код ИФНС ФЛ
   terrifnsfl character varying(4), -- Код территориального участка ИФНС ФЛ
-  infsul character varying(4), -- Код ИФНС ЮЛ
+  ifnsul character varying(4), -- Код ИФНС ЮЛ
   terrifnsul character varying(4), -- Код территориального участка ИФНС ЮЛ
   okato character varying(11), -- ОКАТО
   oktmo character varying(11), -- ОКТМО
@@ -675,6 +691,7 @@ CREATE TABLE landmark
   aoguid character varying(36), -- Уникальный идентификатор родительского объекта (улицы, города, населенного пункта и т.п.)
   startdate date, -- Начало действия записи
   enddate date, -- Окончание действия записи
+  normdoc character varying(36), -- Внешний ключ на нормативный документ
   CONSTRAINT landmark_pkey PRIMARY KEY (landid)
 )
 WITH (OIDS=FALSE);
@@ -686,7 +703,7 @@ COMMENT ON COLUMN landmark.location IS 'Месторасположение ор�
 COMMENT ON COLUMN landmark.postalcode IS 'Почтовый индекс';
 COMMENT ON COLUMN landmark.ifnsfl IS 'Код ИФНС ФЛ';
 COMMENT ON COLUMN landmark.terrifnsfl IS 'Код территориального участка ИФНС ФЛ';
-COMMENT ON COLUMN landmark.infsul IS 'Код ИФНС ЮЛ';
+COMMENT ON COLUMN landmark.ifnsul IS 'Код ИФНС ЮЛ';
 COMMENT ON COLUMN landmark.terrifnsul IS 'Код территориального участка ИФНС ЮЛ';
 COMMENT ON COLUMN landmark.okato IS 'ОКАТО';
 COMMENT ON COLUMN landmark.oktmo IS 'ОКТМО';
@@ -696,6 +713,7 @@ COMMENT ON COLUMN landmark.landguid IS 'Глобальный уникальны�
 COMMENT ON COLUMN landmark.aoguid IS 'Уникальный идентификатор родительского объекта (улицы, города, населенного пункта и т.п.)';
 COMMENT ON COLUMN landmark.startdate IS 'Начало действия записи';
 COMMENT ON COLUMN landmark.enddate IS 'Окончание действия записи';
+COMMENT ON COLUMN landmark.normdoc IS 'Внешний ключ на нормативный документ';
 
 CREATE TRIGGER landmark_before_insert
   BEFORE INSERT
@@ -703,7 +721,7 @@ CREATE TRIGGER landmark_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS nordoc;
+DROP TABLE IF EXISTS nordoc CASCADE;
 CREATE TABLE nordoc
 (
   normdocid character varying(36) NOT NULL, -- Идентификатор нормативного документа
@@ -732,7 +750,7 @@ CREATE TRIGGER nordoc_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS operstat;
+DROP TABLE IF EXISTS operstat CASCADE;
 CREATE TABLE operstat
 (
   operstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -768,7 +786,7 @@ CREATE TRIGGER operstat_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS socrbase;
+DROP TABLE IF EXISTS socrbase CASCADE;
 CREATE TABLE socrbase
 (
   level integer NOT NULL, -- Уровень адресного объекта
@@ -793,7 +811,7 @@ CREATE TRIGGER socrbase_before_insert
   FOR EACH ROW
   EXECUTE PROCEDURE fias_insert_before();
 
-DROP TABLE IF EXISTS strstat;
+DROP TABLE IF EXISTS strstat CASCADE;
 CREATE TABLE strstat
 (
   strstatid integer NOT NULL, -- Идентификатор статуса (ключ)
@@ -814,8 +832,4 @@ CREATE TRIGGER strstat_before_insert
   BEFORE INSERT
   ON strstat
   FOR EACH ROW
-<<<<<<< HEAD
   EXECUTE PROCEDURE fias_insert_before();
-=======
-  EXECUTE PROCEDURE fias_insert_before();
->>>>>>> origin/master

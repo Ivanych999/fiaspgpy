@@ -110,19 +110,16 @@ class pgworker:
 
 	def insert_data(self,tablename,records):
 		result = {"status": "", "data": ""}
-		lq = ''
+		# lq = ''
 		try:
 			with self._connect() as conn:
+				conn.autocommit = True
 				cur = conn.cursor()
 				for row in records:
 					statement = "INSERT INTO {0} ({1}) VALUES ({2})".format(tablename,','.join(row.keys()).lower(),','.join('%s' for i in xrange(len(row.values()))))
-					if row.values()[0] == 'db9b8f3c-f8a7-4260-a3db-5f5ac0211d99':
-						print 1
 					cur.execute(statement,tuple(row.values()))
-					lq = cur.query
-				conn.commit()
 				cur.close()
-				result = {"status": apylog.SEVERITY_INFO, "data": "%s: all data inserted" % tablename}
+				result = {"status": apylog.SEVERITY_INFO, "data": "success"}
 		except Exception,err:
 			result = {"status": apylog.SEVERITY_ERROR, "data": err.message.decode('utf8')}
 		return result
@@ -252,27 +249,28 @@ class fiasloader:
 				return
 			
 			tbl = c_task["table"]
-			dbf = c_task["file"]
+			dbfs = c_task["files"]
 
 			self.logger.addMessage(apylog.SEVERITY_INFO, "Start work with %s" % tbl)
 			pkey_res = self.pg_worker.get_pkey_name(self.config_worker.config_data,tbl)
 			if pkey_res["status"] == apylog.SEVERITY_INFO:
 				pkey = pkey_res["data"]
-				self.logger.addMessage(apylog.SEVERITY_INFO, "%s: start working" % dbf)
-				with self.dbf_worker.open_file(dbf) as dbfdata:
-					#upsert_result = self.pg_worker.upsert_data(self.config_worker.config_data,tbl,pkey,dbfdata.records)
-					upsert_result = self.pg_worker.insert_data(tbl,dbfdata.records)
-					self.logger.addMessage(upsert_result["status"],upsert_result["data"])
-				self.logger.addMessage(apylog.SEVERITY_INFO, "%s: finished" % dbf)
+				for dbf in dbfs:
+					self.logger.addMessage(apylog.SEVERITY_INFO, "%s: start working" % dbf)
+					with self.dbf_worker.open_file(dbf) as dbfdata:
+						#upsert_result = self.pg_worker.upsert_data(self.config_worker.config_data,tbl,pkey,dbfdata.records)
+						upsert_result = self.pg_worker.insert_data(tbl,dbfdata.records)
+						if upsert_result["status"] > apylog.SEVERITY_INFO:
+							self.logger.addMessage(upsert_result["status"],upsert_result["data"])
+					self.logger.addMessage(apylog.SEVERITY_INFO, "%s: finished" % dbf)
+				self.logger.addMessage(apylog.SEVERITY_INFO, "%s: finished" % tbl)
 			else:
 				self.logger.addMessage(apylog.SEVERITY_ERROR,pkey_res["data"])
 			
 	def load(self):
 		if len(self.dbf_worker.files_tables.keys()) > 0:
 			for tbl in self.dbf_worker.files_tables.keys():
-				for dbf in self.dbf_worker.files_tables.get(tbl,[]):
-					self.upsertQueue.put({"table": tbl, "file": dbf})
-
+				self.upsertQueue.put({"table": tbl, "files": self.dbf_worker.files_tables.get(tbl,[])})
 			for _ in xrange(self.config_worker.config_data["threads_count"]):
 				thread_ = threading.Thread(target=self._doLoad)
 				thread_.start()
