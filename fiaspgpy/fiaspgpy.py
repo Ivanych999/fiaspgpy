@@ -108,7 +108,6 @@ class pgworker:
 		else:
 			return 'null'
 
-<<<<<<< HEAD
 	def insert_data(self,tablename,records):
 		result = {"status": "", "data": ""}
 		lq = ''
@@ -130,10 +129,6 @@ class pgworker:
 
 	def upsert_data(self,config,tablename,pkey_name,records):
 		result = {"status": "", "data": ""}
-=======
-	def upsert_data(self,config,tablename,pkey_name,records):
-		result = {"status": "", "data": ""}
->>>>>>> origin/master
 		try:
 			with self._connect() as conn:
 				cur = conn.cursor()
@@ -263,20 +258,12 @@ class fiasloader:
 			pkey_res = self.pg_worker.get_pkey_name(self.config_worker.config_data,tbl)
 			if pkey_res["status"] == apylog.SEVERITY_INFO:
 				pkey = pkey_res["data"]
-<<<<<<< HEAD
 				self.logger.addMessage(apylog.SEVERITY_INFO, "%s: start working" % dbf)
 				with self.dbf_worker.open_file(dbf) as dbfdata:
 					#upsert_result = self.pg_worker.upsert_data(self.config_worker.config_data,tbl,pkey,dbfdata.records)
 					upsert_result = self.pg_worker.insert_data(tbl,dbfdata.records)
 					self.logger.addMessage(upsert_result["status"],upsert_result["data"])
 				self.logger.addMessage(apylog.SEVERITY_INFO, "%s: finished" % dbf)
-=======
-				self.logger.addMessage(apylog.SEVERITY_INFO, "Start load data from file %s" % dbf)
-				with self.dbf_worker.open_file(dbf) as dbfdata:
-					upsert_result = self.pg_worker.upsert_data(self.config_worker.config_data,tbl,pkey,dbfdata.records)
-					self.logger.addMessage(upsert_result["status"],upsert_result["data"])
-				self.logger.addMessage(apylog.SEVERITY_INFO, "Work with %s finished" % dbf)
->>>>>>> origin/master
 			else:
 				self.logger.addMessage(apylog.SEVERITY_ERROR,pkey_res["data"])
 			
@@ -289,17 +276,9 @@ class fiasloader:
 			for _ in xrange(self.config_worker.config_data["threads_count"]):
 				thread_ = threading.Thread(target=self._doLoad)
 				thread_.start()
-<<<<<<< HEAD
-
 			while threading.active_count() > 1:
 				time.sleep(1)
 
-=======
-
-			while threading.active_count() > 1:
-				time.sleep(1)
-
->>>>>>> origin/master
 	def load_schema(self):
 		schema_file = os.path.join(os.path.dirname(__file__),self.config_worker.config_data.get("schema_file",'fias_schema.sql'))
 		if os.path.exists(schema_file):
